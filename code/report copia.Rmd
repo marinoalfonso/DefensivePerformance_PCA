@@ -1,0 +1,663 @@
+---
+title: "Application of PCA & Multiple Linear Regression with football data"
+author: Alfonso Marino
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r include = F}
+library(tidyverse)
+library(corrplot)
+library(factoextra)
+library(worldfootballR)
+library(ggplot2)
+library(GGally)
+library(car)
+library(lmtest)
+library(PerformanceAnalytics)
+library(gridExtra)
+
+df_ITA = fb_season_team_stats("ITA", "M", 2024, "1st", "defense")[1:20,]
+df_GER = fb_season_team_stats("GER", "M", 2024, "1st", "defense")[1:18,]
+df_FRA = fb_season_team_stats("FRA", "M", 2024, "1st", "defense")[1:18,]
+df_SPA = fb_season_team_stats("ESP", "M", 2024, "1st", "defense")[1:20,]
+df_ENG = fb_season_team_stats("ENG", "M", 2024, "1st", "defense")[1:20,]
+
+df = rbind(df_ITA, df_GER, df_FRA, df_SPA, df_ENG)
+
+```
+
+# Dataset description
+
+The dataset under analysis is the union of five datasets extracted from the [*football-reference*](https://fbref.com/it/) site through the use of the **wordfootballR** library. The library allows you to do web scraping at certain sites with ad-hoc functions and choose the dataset you want to work with. In the case at hand, we went to work on data related to the defensive actions of teams from the five major European leagues (Serie A, Bundesliga, Ligue 1, La Liga, Premier League) in the 2023/2024 season. At the time of extraction, the dataset consists of the following variables:
+
+-   *Competition_Name* represents the name of the competition to which the observations belong;
+
+-   *Gender* concerns the gender of the participants in each team;
+
+-   *Country* represents the country of the competition;
+
+-   *Season_End_Year* indicates the year in which the sports season ended, in our case the year 2024 is mentioned because the season 2023/24 is being analyzed;
+
+-   *Squad* contains the names of the teams participating in the league;
+
+-   *Team_or_Opponent* makes a disinction about the statistics related to the team under consideration or the teams against it, in our case only the teams' own statistics were selected;
+
+-   *Num_Players* denotes the number of players used in all games played;
+
+-   *Mins_Per_90* denote the games played for each team;
+
+-   *Tkl_Tackles* counts the number of contrasts made by the players;
+
+-   *TklW_Tackles* represents the contrasts in which the team of the contrastor recovered possession of the ball;
+
+-   *Def 3rd_Tackles* counts the contrasts made in the defensive third of the field;
+
+-   *Mid 3rd_Tackles* counts the contrasts made in the middle part of the field;
+
+-   *Att 3rd_Tackles* counts the contrasts made in the offensive third of the field;
+
+-   *Tkl_Challenges* denotes the number of dribbling attempts countered;
+
+-   *Att_Challenges* represents the total number of drbbling attempts faced;
+
+-   *Tkl_percent_Challenges* represents the percentage of successful dribbling countered;
+
+-   *Lost_Challenges* counts the number of failed attempts to counter a dribbling attempt;
+
+-   *Blocks_Blocks* counts the number of times a defender blocked the ball by placing himself in its path;
+
+-   *Sh_Blocks* counts the number of times a shot was blocked by placing himself on its trajectory;
+
+-   *Pass_Blocks* counts the number of times a pass was blocked by placing himself on its trajectory;
+
+-   *Int* represents interceptions, i.e., the action in which a defender anticipates an opponent's pass, interrupting the trajectory of the ball and taking control of it or deflecting it significantly. ;
+
+-   *Tkl_plus_Int* represents the number of setbacks made plus interceptions;
+
+-   *Clr* counts sweeps, i.e., shots by defenders aimed at moving the ball away from their own area;
+
+-   *Err* counts errors that lead to an opponent's shot.
+
+For ease of use and understanding, the names of some variables have been shortened, as well as some excluded from the analysis because they are not relevant.
+
+```{r}
+df = subset(df, 
+            select = -c(Competition_Name, Gender, Country, Season_End_Year, 
+                        Team_or_Opponent, Num_Players, Mins_Per_90, Tkl_plus_Int, Blocks_Blocks))
+
+df = rename(df, 
+       Tkl = Tkl_Tackles,
+       TklWin = TklW_Tackles,
+       Def.3rd_Tkl = "Def 3rd_Tackles",
+       Mid.3rd_Tkl = "Mid 3rd_Tackles",
+       Att.3rd_Tkl = "Att 3rd_Tackles",
+       Tkl_Drib = Tkl_Challenges,
+       Atmp_Drib = Att_Challenges,
+       Tkl_Drib.Perc= Tkl_percent_Challenges,
+       Lost_Drib = Lost_Challenges,
+       Sh_Blk = Sh_Blocks,
+       Pass_Blk = Pass_Blocks
+       )
+```
+
+# Goals
+
+The following paper aims to analyze data on the defensive phase of major European teams in the 2023/24 season by highlighting the different styles of play. At first, a descriptive analysis will be carried out to explain the distribution of variables using statistical tools and graphs. Then it will continue by reducing the dimensionality of the dataset with principal component analysis. Finally, it will be concluded by estimating a multiple regression model to look for linear relationships among the selected variables.
+
+# Descriptive analysis
+
+For the purpose of the analysis, the following libraries were essential: - *ggplot2*, *GGally*, and *gridExtra* for graphical representations; - *corrplot* for correlation matrix representation; - *worldfootballR* for data extraction; - *tidyverse* for data manipulation; - *factoextra* for Principal Component Analysis applocation; - *psych* and *PerformanceAnalytcs* for data description; - *car* and *lmtest* for regression specificity tests.
+
+A visualization of the data shows how there are 20 observations for 15 variables, with the majority being numerical:
+
+```{r, echo = F}
+str(df)
+```
+
+Before going into the descriptive analysis, NA values were checked for presence and then removed if necessary. Verification which was unsuccessful:
+
+```{r, echo = F}
+colSums(is.na(df))
+```
+
+Specifically, *descriptive analysis* is a set of techniques used to describe and summarize data in a meaningful way. This type of analysis focuses on the representation of data through statistical measures and graphical displays, enabling an understanding of the main characteristics of a dataset. Using the *describe* function of the *psych* library, numerous statistical measures were extracted including *location indices*, *skewness indices* and *variability indices*:
+
+1\. **vars**. The number of variables in the dataset.
+
+2\. **n**. The number of non-missing observations for each variable.
+
+3\. **mean**. The arithmetic mean represents that value around which all other observations in the sample tend to cocnenter:
+
+$$\bar{x} = \frac{\sum_{i=1}^{n} x_i}{n}$$ 4. **sd**. The standard deviation of the values in the variable, which measures the dispersion of the data around the mean:
+
+$$s = \sqrt{\frac{\sum_{i=1}^{n} (x_i - \bar{x})^2}{n-1}}$$
+
+5\. **median**. The median of the values in the variable, which represents the central value when the data are sorted in ascending order.
+
+$$\text{Median} = x_{\left(\frac{n+1}{2}\right)}$$ with odd observations;
+
+$$\text{Mediana} = \frac{x_{\left(\frac{n}{2}\right)} + x_{\left(\frac{n}{2} + 1\right)}}{2}$$ with even observations.
+
+6\. **trimmed**. The "trimmed" mean of the values in the variable, calculated by excluding a percentage of the extreme values:
+
+$$\text{Trimmed} = \frac{\sum_{i=k+1}^{n-k} x_i}{n-2k}$$
+
+7\. **mad**. The absolute deviation from the median, a measure of robust dispersion at extreme values:
+
+$$\text{MAD} = \text{median}(|x_i - \text{median}(x)|)$$
+
+8\. **min**. The minimum value observed in the variable.
+
+9\. **max**. The maximum value observed in the variable.
+
+10\. **range**. The difference between the maximum and minimum value in the variable:
+
+$$\text{range} = \text{max} - \text{min}$$
+
+11\. **skew**. The measure of the skewness of the data distribution. When the skewness is less than 0, the distribution is negative (or right-handed), when it is greater than 0 it is called positive (or left-handed), and finally when it is equal to 0, the distribution will be symmetrical. Asymmetry can be calculated with different indices:
+
+-   **Asimmetria di Pearson**: $\bar{x} - \text{Median}$
+
+-   **Asimmetria di Pearson standardizzata:** $\frac{(\bar{x} - \text{Median})}{\sigma}$
+
+-   **Indice di Yule e Bowley**: $\frac{(Q_3 - Q_2) - (Q_2 - Q_1)}{(Q_3 - Q_2) + (Q_2 - Q_1)}$
+
+-   **Indice di Fisher:** $\frac{1}{n} \sum_{i=1}^{n} \left(\frac{x_i - \bar{x}}{s}\right)^3$
+
+12\. **kurtosis**. The measure of the "sharpness" of the data distribution. If the coefficient is 0, it will be referred to as a Gaussian or *mesocurtic* curve; if the coefficient is greater than 0, the curve will be called *leptokurtic*, with the tails trending to 0 very quickly compared to a normal; when the coefficient is less than 0, there will be a *platicurtic* curve, which will be flatter than a normal:
+
+$$\text{kurtosis} = \frac{1}{n} \sum_{i=1}^{k} \left(\frac{x_i - \bar{x}}{s}\right)^4 n_i-3 $$
+
+13\. **se**. The standard error of the mean, which estimates the precision of the sample mean relative to the population mean:
+
+$$\text{SE} = \frac{s}{\sqrt{n}}$$
+
+The distribution of opposed dribbles (Tkl_Drib), blocked passes (Pass_Blk) and rejections (Clr) shows a slight negative skewness, suggesting that most teams are close to or above average, with a few downward exceptions. However, variability is evident, especially for rejections (Clr) themselves and the number of dribbles faced (Atmp_Drib), which show a wide range and significant standard deviation, denoting marked differences between teams. This may reflect different tactical approaches, with some teams preferring to defend more compactly and others adopting a more aggressive and proactive defense. Interceptions (Int) and thwarted dribble attempts (Atmp_Drib) show a more even distribution, with a slight positive skewness, indicating that few teams particularly excel in this aspect, perhaps due to individual skills. In addition, the low kurtosis for most variables suggests a flat distribution, with no extreme peaks, confirming relatively stable defensive behavior among teams. This reflects uniform tactical preparation in terms of defensive fundamentals, but with variations in individual capabilities. Overall, the data show consistency in basic defensive tactics, but also diversity in specific skills and approaches, likely influenced by each coach's playing style and tactical philosophy and culture.
+
+```{r, echo = F}
+numerical_data <- df[,2:15]
+rownames(numerical_data) = df$Squad
+psych::describe(numerical_data)
+```
+
+## Graphical representations
+
+### Histograms and boxplots
+
+What is obtained numerically can be well represented graphically using histograms and boxplots. The **histograms** show the frequency of variable values, allowing one to quickly identify the shape of the distribution, the presence of any skewness, and the density of the data around the mean. The **boxplots**, on the other hand, provide a concise representation of the data across quartiles, highlighting the median, interquartile range and the presence of outliers.
+
+```{r, fig.width=12, fig.height=12, echo = F}
+par(mfrow = c(5, 3), mar = c(2, 2, 2, 1))
+
+for(i in 1:ncol(numerical_data)) {
+  hist(numerical_data[[i]], main = colnames(numerical_data)[i], xlab = "", ylab = "Frequency", col = "#3B9AB2", border = "black", cex.main = 1.7)
+}
+
+par(mfrow = c(1, 1))
+
+
+par(mfrow = c(5, 3))
+team_names <- rownames(numerical_data)
+for(i in 1:ncol(numerical_data)) {
+  Boxplot(numerical_data[[i]], id = list(labels = team_names), main = colnames(numerical_data)[i], col = "#3B9AB2", border = "black", outcol = "#F21A00", pch = 19, cex = 1.5, cex.main = 1.7)
+}
+
+par(mfrow = c(1, 1))
+```
+
+From the box plots we note eight variables characterized by outliers, i.e., values that are much larger or much smaller than the rest of the distribution. More precisely, **outliers** are values in a data set that deviate significantly from most other observations. They may represent outliers that do not follow the same trend as the other data or may be the result of measurement or data collection errors. There are several methods for identifying outliers, including evaluation by descriptive statistics such as mean and standard deviation, or using graphical tools, as in our case, where the *interquartile range* (**IQR**) method was applied. IQR-based outliers are identified as values that fall outside the range:
+
+$$
+\text{Outlier} = [Q1 - 1.5 \times \text{IQR}, Q3 + 1.5 \times \text{IQR}]
+$$
+
+Where:
+
+-   **Q1** (*First quartile*): Is the value that separates the bottom 25% of the data from the top 75%.
+-   **Q3** (*Third quartile*): It is the value that separates the upper 75% of the data from the lower 25%.
+
+It is noticeable that **Torino** has very low observations regarding the number of dribbles countered, this highlights a more conservative defensive strategy or at least less focused on directly countering the opponent's dribble. These teams might prefer a more organized and compact defense, focused on blocking passing lines and containing opponents without necessarily engaging in many challenges to dribbling.
+
+**Juventus**, on the other hand, records a high percentage of successfully countered dribbles, suggesting that players were particularly adept at maintaining position, reading opponents' moves and intervening effectively to recover the ball without conceding space for penetrations, a characteristic feature of the last few years of *Allegri's* teams.
+
+The extreme value for attempted tackles in the offensive third is recorded by **Tottenham**, which highlights how Ange Postecoglu has totally changed the way the team has played in recent years after the team's less-than-positive experiences with Mourinho and Conte, making pressing his main weapon for recovering the ball in the opponent's half, trying to create opportunities for quick counter-attacks or exploiting opponents' mistakes.
+
+The **Nottingham Forest** and **Wolverampton**, on the other hand, recorded high values for the number of tackles in the defensive third. This approach may be used by teams that prefer to keep a low, compact defensive line, trying to take advantage of counterattacks. It could also be symptomatic of teams that have difficulty keeping possession of the ball or controlling the midfield.
+
+The extreme value for dribbles conceded is recorded by **Liverpool**, this is essentially because Jurgen Klopp makes *Gegenpressing* his workhorse, which allows him to implement strong pressure on the ball carrier as soon as it is lost. However, this strategy involves continuous 1 vs. 1 and exposure of the defense to counterattacks.
+
+The figure of blocked shots (Sh_Blk) highlights the difficulties of the defensive phase of **Manchester United** this year, which ended the season with more goals conceded than scored. While this value could indicate a very active and aggressive defense, trying to prevent opponents from shooting on goal with timely interventions, it could also mean that the team is often under pressure, with opponents attempting many shots, forcing defenders to intervene frequently to block shot attempts.
+
+Finally, it is noticeable that **Monaco** reports very high values for tackles attempted in the central third of the field, this reflects the actions of very dynamic midfielders who are active in breaking the opponents' passing lines and recovering possession of the ball, such as Fofana and Zakaria.
+
+### Percentile Ranking Plot
+
+A general overview of the characteristics of each team can be seen in the following box in which *percentile ranking* is used via *radarchart.* Percentile ranking is a statistical measure that indicates the position of a value within a distribution of data. It expresses the percentage of data that are below a given value. For example, if a value is at the 70th percentile, it means that 70% of the data in the distribution is below that value.
+
+```{r, fig.width=12, fig.height=12, echo = F}
+library(fmsb)
+calculate_percentiles <- function(df) {
+   as.data.frame(apply(df, 2, function(x) rank(x, ties.method = "min") / length(x) * 100))
+}
+ 
+radar_chart <- function(data, squad_index, title, color) {
+   percentiles <- calculate_percentiles(data)
+   squad_data <- percentiles[squad_index, , drop = FALSE]
+   squad_data <- rbind(rep(100, ncol(squad_data)), rep(0, ncol(squad_data)),squad_data)
+   
+   radarchart(squad_data, axistype = 1,
+              pcol = color, pfcol = scales::alpha(color, 0.5), plwd = 2,
+              cglcol = "grey", cglty = 1, axislabcol = "grey", caxislabels = seq(0, 100, 20), cglwd = 0.8,
+              vlcex = 0.8)
+   title(main = title)
+}
+
+df_ITA <- numerical_data[1:20, ]
+df_ENG <- numerical_data[77:96, ]
+df_GER <- numerical_data[21:38, ]
+df_SPA <- numerical_data[57:76, ]
+df_FRA <- numerical_data[39:56, ]
+
+league_colors <- list(
+  ITA = "blue",
+  ENG = "purple",
+  GER = "red",
+  SPA = "orange",
+  FRA = "green"
+)
+
+create_league_radar_charts <- function(league_data, league_name, color) {
+  squads <- rownames(league_data)
+  
+  par(mfrow = c(5, 4), mar = c(2, 2, 2, 1), oma = c(0, 0, 4, 0))
+  
+  for (i in 1:nrow(league_data)) {
+    radar_chart(league_data, i, squads[i], color)
+  }
+  
+  mtext(league_name, outer = TRUE, cex = 2.5)
+}
+
+create_league_radar_charts(df_ITA, "Serie A", league_colors$ITA)
+create_league_radar_charts(df_ENG, "Premier League", league_colors$ENG)
+create_league_radar_charts(df_GER, "Bundesliga", league_colors$GER)
+create_league_radar_charts(df_SPA, "La Liga", league_colors$SPA)
+create_league_radar_charts(df_FRA, "Ligue 1", league_colors$FRA)
+```
+
+Putting the focus on the teams that won their respective championships (Inter Milan, Leverkusen, Real Madrid, PSG, Manchester City), what they have in common is the tendency to make a high number of tackles in the offensive third, so as to recover the ball as close to the opponent's goal and as quickly as possible. This strategy confirms the theory that the less time a team's transitions last, the greater the chances of victory.
+
+In contrast, for the teams relegated or engaged in any playoffs, it is evident that throughout the year they have been targets for opposing raids. Demonstrating this are the high values for rejections, to push the ball away from their own area, and of errors that led to an opponent's conclusion, consequently, they also record a high figure of blocked shots.
+
+## Correlation Matrix
+
+To understand the relationships between the variables used, a useful tool is definitely the **correlation matrix**. The correlation matrix is a table showing the correlation coefficients between the variables in the dataset, that is, the strength of the linear dependence link between two variables. These coefficients can range from -1 to 1, where: - A value close to 1 indicates a strong positive correlation, i.e., the variables tend to vary together in the same direction. - A value close to -1 indicates a strong negative correlation, i.e., the variables tend to vary together in opposite directions.- A value close to 0 indicates a weak or no correlation, i.e., the variables do not show a linear relationship.
+
+In the correlation matrix, the values on the main diagonal are always 1, since they represent the correlation of a variable with itself. The other values in the matrix indicate the correlation between pairs of variables. These values may result from the application of different methods such as *Kendall's* or *Spearman's*, or, as in the present case, *Pearson's*:
+
+$$r = \frac{n(\sum xy) - (\sum x)(\sum y)}{\sqrt{[n\sum x^2 - (\sum x)^2][n\sum y^2 - (\sum y)^2]}}$$ dove:
+
+-   $r$ Is Pearson's correlation coefficient;
+
+-   $n$ is the number of observations;
+
+-   $\sum xy$ is the sum of the products of the differences between the observations of $x$ and $y$.
+
+-   $\sum x$ and $\sum y$ are the sums of the observations of $x$ and $y$.
+
+-   $\sum x^2$ e $\sum y^2$ are the sums of the squares of the observations of $x$ e $y$.
+
+In the analysis of correlations, the **p-value** was also used to highlight the statistical significance of each, helping to understand whether the correlation between two variables is due to chance or is actually relevant.
+
+Theoretically, the p-value represents the probability of obtaining a test statistic at least as extreme as the observed one, assuming the null hypothesis is true. The null hypothesis in this case is that there is no correlation between the two variables. If the p-value is less than a predefined significance level (e.g., 0.05, 0.01 or 0.001), we can reject the null hypothesis and conclude that there is a significant correlation between the variables. The formula for calculating p-value in correlation analysis is based on Student's t distribution. If $\hat{r}$ is the sample correlation coefficient between two variables, then the t test statistic is calculated as:
+
+$$t = \frac{\hat{r} \sqrt{n-2}}{\sqrt{1-\hat{r}^2}}$$
+
+where $n$ is the number of observations.
+
+This test statistic follows a t distribution with $n - 2$ degrees of freedom. The p-value associated with this statistic is obtained by comparing the absolute value of t with the Student's t distribution. In R, the calculation of the p-value for each pair of variables in the correlation matrix is performed by the function *cor.mtest()*, which generates a matrix of p-values. These p-values are then used to determine the significance of the correlations displayed in the graph.
+
+```{r, echo = F}
+corrMatr = cor(numerical_data)
+testRes = cor.mtest(numerical_data, conf.level = 0.95)
+corrplot(corrMatr, p.mat = testRes$p, method = 'color', diag = FALSE, type = 'upper',
+         sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,
+         insig = 'label_sig', pch.col = 'grey20', order = 'FPC')
+
+```
+
+Analysis of the correlation matrix and related significance tests reveals several important relationships among the variables. The results show that many variables are strongly correlated with each other, indicating interconnected defensive behaviors that may influence overall team performance. The most significant correlations are observed between tackles made (Tkl) and tackles won (TklWin), as well as between dribbles conceded (Lost_Drib) and dribble attempts faced (Atmp_Drib). These relationships suggest that teams that are more active in counterattacks also tend to be effective in recovering ball possession and successfully dealing with opposing dribbles. This is an indicator of a solid and aggressive defense capable of disrupting opposing actions and creating transition opportunities for their team. Another interesting correlation is between counterattacks in the defensive third (Def.3rd_Tkl) and blocked shots (Sh_Blk), but also with rejections (Clr), which highlights how a defensive approach marked by low blocking defense pushes opposing players to kick more on goal to find alternative solutions. In addition, the relationship between dribbles conceded (Lost_Drib) and pass blocks (Pass_Blk) can highlight the teams' qualities of still maintaining good defensive solidity despite lost contrast, and of good reading of the game even in unfavorable situations.An interesting inverse relationship is observed between lost dribbles (Lost_Drib) and the percentage of successfully countered dribbles (Tkl_Drib.Perc). This negative correlation indicates that as the number of dribbles lost increases, the percentage of successfully countered dribbles decreases. This suggests that greater ineffectiveness in countering opponent dribbles leads to a higher number of dribbles lost, highlighting areas of improvement in individual defensive ability.
+
+# Principal Component Analysis
+
+In statistical data analysis, **Principal Component Analysis** (*PCA*) is a dimensionality reduction technique used to simplify complex datasets. When dealing with a large number of correlated variables, as in our case with the defensive variables of Serie A teams, it is useful to find a way to reduce the number of variables while retaining most of the information in the original dataset. PCA allows the original correlated variables to be transformed into a new set of uncorrelated variables called *principal components*. In the context at hand, it is useful because identifying defensive principal characteristics can provide valuable insights for improving game strategies. Determining how many principal components to keep is critical; the goal is to select only PCs that capture a significant amount of variance of the original data. This is evaluated through the eigenvalues of the or sample correlation matrix. There are several criteria for making this decision; the most common are discussed below:
+
+1.  **Variance Explained**: A sufficient number of components are kept to explain a significant percentage of the total variance of the original data, usually between 70% and 90%.
+2.  **Scree Plot**: This plot shows the eigenvalues ordered decreasingly on the y-axis with respect to their order number on the x-axis. If the first eigenvalues dominate in magnitude and the remainder are very small, the scree plot will show an "elbow" indicating the point at which the change in the magnitude of the eigenvalues becomes least significant. This "elbow" can be used to determine the number of PCs to keep.
+3.  **Kaiser's rule**: Only PCs whose eigenvalues exceed a value of 1 are kept.This criterion is based on the idea that each standardized variable should contribute at least one unit of variance. However, this rule is controversial and a modified version suggests keeping PCs with eigenvalues greater than 0.7, especially for standardized data. For nonstandardized data, this rule may not be applicable.
+
+PCA consists of several key steps. First, it is critical to **standardize** the variables to have a mean of zero and a standard deviation of one, ensuring that all variables are comparable. This is especially important when the original variables have different scales. Next, the **correlation matrix** of the standardized variables is calculated to measure the linear relationship between each pair of variables. The graph displays any correlation that exists between the variables, specifically: - scatter plots are depicted on the left of the graph; - along the main diagonal, the variables are described with histograms and attached trend line; - on the right of the graph, correlation coefficients and their statistical siginificance are displayed.
+
+```{r, warning = FALSE, echo = FALSE, fig.width=12, fig.height=12, error = F}
+
+chart.Correlation(numerical_data)
+```
+
+Then, we continue with the **decomposition of the correlation matrix** in its principal components through the singular value decomposition algorithm (SVD) or by the analysis of *eigenvalues* and *eigenvectors*. Eigenvalues represent the amount of total variability observed on the original variables, "explained" by each main component; eigenvectors instead represent the corresponding (orthogonal) directions of maximum variability extracted from the principal components.
+
+Each principal component obtained is a linear combination of the original variables, ordered according to the amount of variance explained. The first major component captures most of the variance in the dataset, the second major component captures most of the remaining variance, and so on. This process allows us to reduce the complexity of the dataset while maintaining the most relevant information. The formula for the first princiapl component $z_1$ is given by:
+
+$$
+z_1 = a_{11} x_1 + a_{12} x_2 + \ldots + a_{1p} x_p
+$$ where $a_{11}, a_{12},  ldots, a_{1p}$ are the weighting coefficients (eigenvectors) and $x_1, x_2,  ldots, x_p$ are the original variables.
+
+From the *Scree Plot* we can see that the first four PCs explain more than 75% of global variability, with coefficients:
+
+```{r, echo = F}
+data.pca <- princomp(numerical_data, cor = T)
+summary(data.pca, loadings = T)
+fviz_eig(data.pca, col.var="blue", addlabels = T)
+```
+
+The *loading* are the coefficients applied to the original variables to determine the main components, and can help describe the main components considered. The first major component is strongly characterized by the number of total tackles, tackles won and tackles against dribbling. This suggests that:
+
+-   Component 1 represents an axis of evaluation of the overall defensive ability and recovery ball through effective contrasts;
+
+-   the second PC highlights the ability to counteract in the third of the offensive field a combination of positional defensive actions and defensive blocks;
+
+-   the third PC is more associated with efficiency in tackle, especially in the central part of the field;
+
+-   the fourth component describes the tendency of teams to make mistakes that lead to an opponent’s shot.
+
+## Analysis of variables
+
+This approach is particularly useful to identify the most influential variables and to better understand the underlying structure of data. The PCA also facilitates visualization of the relationships between the original variables, highlighting the directions along which the data shows the greatest variance. In fact, PCA results can be evaluated in relation to both variables and individuals. Therefore, the results for the variables were extracted.
+
+```{r, echo = F}
+var <- get_pca_var(data.pca)
+var$cos2[,1:4]
+```
+
+$Cos^2$, or the cosine squared, corresponds to the quality of variable representation. Values of $cos^2$ high indicate that a variable is well represented by a particular main component, while low values suggest that the variable is best represented by other components. Below are the $cos^2$ of the variables on the 4 dimensions.
+
+```{r, echo = F}
+corrplot(var$cos2[,1:4], is.corr= F)
+```
+
+Some variables need a few main components to be represented well, others need more main components to get a good $cos^2$.
+
+```{r, echo = F}
+fviz_cos2(data.pca, choice = "var", axes = 1:2)
+```
+
+In addition, the quality of the representation of variables can be depicted in *correlation cirlce*, where the values of $cos^2$ differ in color. Positively related variables are grouped together, while negatively related variables are placed on opposite sides of the origin of the chart. The distance between variables and origin measures the quality of variables on the factor map. Variables far from origin are well represented on the factor map.
+
+
+```{r, echo = F}
+fviz_pca_var(data.pca,
+             col.var = "cos2", 
+             gradient.cols = c("darkorchid4", "gold", "green"),
+             repel = TRUE
+)
+```
+
+The variables Tkl, Tkl_Win, and Tkl_Drib have a very high $cos^2$, respectively of 0.902, 0.821, and 0.817, on the first principal component. This implies that these variables are well represented by the first principal component, and therefore are placed close to the circumference of the correlation circle. Conversely, Err, Tkl_Drib.Perc and Int are close to the origin of the axes, so they are not well represented by the main components.
+
+```{r, echo = F, fig.width=12, fig.height=12}
+plot1 <- fviz_contrib(data.pca, choice = "var", axes = 1)
+plot2 <- fviz_contrib(data.pca, choice = "var", axes = 2)
+plot3 <- fviz_contrib(data.pca, choice = "var", axes = 3)
+plot4 <- fviz_contrib(data.pca, choice = "var", axes = 4)
+
+# Disporre i grafici in una finestra grafica singola
+grid.arrange(plot1, plot2, plot3,plot4, nrow = 4)
+```
+
+The red dotted line on the bar charts indicates the expected average contribution. For a certain component, a variable with a higher contribution to this parameter is considered important in contributing to the component.
+
+## Analysis of individuals
+
+As with variables, the same operations were performed for individuals.
+
+```{r, echo = F}
+ind <- get_pca_ind(data.pca)
+head(ind$cos2)
+```
+
+In order to provide an even more detailed analysis, a column has been added regarding the final ranking of each team for the UEFA Champions League qualification.
+
+```{r, fig.width=10, fig.height=8}
+champions_tm = c("Inter", "Milan", "Atalanta", "Bologna", "Juventus",
+                 "Bayern Munich", "Dortmund", "Leverkusen", "Stuttgart", "RB Leipzig",
+                 "Brest", "Lille", "Paris S-G", "Monaco",
+                 "Atlético Madrid", "Barcelona", "Real Madrid", "Girona",
+                 "Arsenal", "Manchester City", "Liverpool", "Aston Villa")
+groups <- ifelse(rownames(numerical_data) %in% champions_tm, 1, 0)
+groups = as.factor(groups)
+levels(groups) = c("UCL", "Non in UCL")
+fviz_pca_ind(
+  data.pca, col.ind = groups, palette = c("#00AFBB",  "#FC4E07"),repel = TRUE, label = "none"
+)
+
+```
+
+It is noted that most of the teams that have achieved a place worth worth in the Champions League, present negative values for the two PCs, this could be traced back to the hypothesis that these teams tend to have an offensive game, and therefore they prefer the possession ball, consequently they are less subjected to defensive actions.
+
+```{r, fig.width=12, fig.height=6, echo = F}
+fviz_contrib(data.pca, choice = "ind", axes = 1:2)
+```
+
+Bayer Leverkusen, Liverpool, Turin and Manchester City have a very high $cos^2$ which implies a good representation of the individuals on the main components, they are in fact placed far from the center of the axes. Bologna, Eintracht Frankfurt, Clermont and Alaves have the lowest $cos^2$, indicating that they are not well represented by PCs, so they are close to the center.
+
+```{r, echo = F}
+#fviz_pca_biplot(data.pca, repel = TRUE,
+#                col.var = "#2E9FDF", # Variables color
+#                col.ind = "#696969",  # Individuals color
+#                label = "none")
+```
+
+# Multiple Linear Regression
+
+To deepen the analysis, and above all to understand the cause-effect relationships between the variables, a model of **multiple linear regression**was used. Linear regression is a statistical method used to model the relationship between a $y$ dependent variable and one or more $X$. The goal is to find the best linear approximation that describes this relationship.
+
+In the case of a single independent variable, the linear regression model (**simple**) is expressed as:
+
+$$y = \beta_0 + \beta_1 x + \epsilon$$ where:
+
+-   $y$: dependent variable (*outcome*);
+
+-   $x$: independent variable (*predictor*);
+
+-   $\beta_0$: intercept (*intercept*), represents the value of $y$ when $x$ is zero;
+
+-   $\beta_1$: regression coefficient (*slope*), represents the expected change in $y$ for a change unit in $x$;
+
+-   $\epsilon$: error term, captures the $y$ variation unexplained by $x$.
+
+When there are multiple independent variables, the model extends to:
+
+$$
+y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \cdots + \beta_p x_p + \epsilon
+$$
+
+dove:
+
+-   $y$: dependent variable;
+
+-   $x_1,x_2, \ldots, x_p$: independent variable;
+
+-   $\beta_0,\beta1_2, \ldots, \beta_p$: regression coefficient;
+
+-   $\epsilon$: error.
+
+## Estimation of coefficients
+
+The $\beta$ coefficients are estimated by minimizing the sum of the squares of the estimators. This technique is known as the ordinary least squares method (*Ordinary Least Squares, OLS*). The function to minimize is:
+
+$$
+min_{\beta} \sum_{i=1}^{n} (y_i - \hat{y}_i)^2
+$$
+
+where: $\hat{y}_i = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \cdots + \beta_p x_{ip}$
+
+## Assumptions of the Linear Regression Model
+
+The regression model is based on the following assumptions:
+
+-   **Linearity**: the relationship between the independent variables and the diependent variable is linear;
+
+-   **Independence**: $\epsilon$ errors are independent of each other;
+
+-   **Homoschedule**: Error variance is constant (not dependent on independent variables);
+
+-   **Normal errors**: $\epsilon$ errors are normally distributed
+
+## Evaluation of the model
+
+To assess the suitability of the model and the importance of the predictors, it is necessary to take into account the **coefficient of determination** $R^2$, which measures the distribution of variance in the dependent variable explained by the independent variables, and the ***significance of the coefficients** which, assessed by statistical tests (*t-test* and *p-value*), indicates whether the coefficient is significant.
+
+## Diagnostics of the model
+
+To ensure that the model assumptions are met, it is important to perform model diagnostics. Some useful tools include:
+
+-   ***Test t by Student**,* verifies that the average error is not significantly different from zero;
+
+-   ***Shapiro Wilk’s test**,* concerns the normality of error distribution;
+
+-   ***Breusch-Pagan Test**,* verifies homoschedaticity of residues;
+
+-   ***Durbin-Watson test**,* checks for serial autocorrelation.
+
+## Estimation of the model
+
+The objective of this analysis is, as initially said, to understand how the different parameters affect each other. In particular we will try to analyze how the variable TklWin, that is the number of tackles won, is influenced by the other variables of the dataset.
+
+```{r, echo = F}
+model <- lm(TklWin ~ Def.3rd_Tkl+Att.3rd_Tkl+Mid.3rd_Tkl+Int+Tkl_Drib+ Sh_Blk
+            +Pass_Blk+Err+Lost_Drib+Clr
+            , data = numerical_data)
+
+# Sommario del modello
+summary(model)
+```
+
+The Atmp_Drib, Tkl_Drib and Tkl variables do not appear in this model because they are closely related to the Lost_Drib and Tkl_Drib variables, and thus achieve a better model. From the values $R^2$ and $Adjusted-R^2$, we can deduce how the model would seem adequate, but from the moment when $R^2$ is interpreted as the compromise between the goodness of adaptation and the penalty due to the excess of "useful" regressors, a reasonable procedure in model specification is to continue to include regressors until $R 2$ starts to decrease. At this point the model is improved by removing all those variables having a small regression coefficient, to do this we use the algorithm **Backward selection** to estimate regressors. The algorithm starts from the model with all the $p$ explanatory variables and then deletes one variable at a time from the one with the highest p-value. The process stops when the p-values of all the remaining variables are below a certain threshold, this threshold is fixed at the level of $\alpha$ = 0.05.
+
+```{r, echo = F}
+model_backward <- step(model, direction = "backward")
+
+summary(model_backward)
+```
+
+Therefore, our new model will be as follows:
+
+$$
+TklWin \sim Def.3rdTkl+ Mid.3rdTkl + Att.3rdTkl+Sh.Blk
+$$
+
+With precision reporting all the specific values the model turns out to be this:
+
+$$
+TklWin = 4.87643 +0.61139 \times \text{Def.3rdTkl} + 0.62736 \times \text{Mid.3rdTkl} + 0.60693 \times \text{Att.3rdTkl} -0.12364 \times \text{Sh.Blk}
+$$
+
+## Test of specificity
+
+### T test
+
+The Student t-test is used to check whether the average error of a regression model is significantly not different from zero. This test helps to confirm that the errors are distributed around zero.
+
+$$
+H_0 : E(\epsilon_i) = 0   
+$$ 
+
+$$
+H_0 : E(\epsilon_i) \not= 0
+$$
+
+The null hypothesis $H_0$ is rejected if the p-value \< 0.05 and its rejection would violate one of the hypotheses of the linear regression model.
+
+```{r, echo = F}
+t.test(model_backward$residuals)
+```
+
+From the test we see that the p-value is equal to 1, so we do not reject the hypothesis that the average of the residues is not significantly different from zero.
+
+### Normal errors - Shapiro-Wilk test
+
+The Shapiro-Wilk test is used to assess the normality of the error distribution.
+
+```{r, echo = F}
+shapiro.test(model_backward$residuals)
+```
+
+From this test we can verify that the p-value \> 0.05 and therefore there is no significant evidence to reject the null hypothesis of normality. This suggests that the residues follow a normal distribution.
+
+### Q-Q Plot
+
+The rejection of the null hypothesis is also supported by the **Normal Quantile-Quantile Plot**, as the points are distributed very close to the diagonal in the graph.
+
+```{r, echo = F}
+qqnorm(scale(model_backward$residuals))
+abline(0,1)
+```
+
+### Homoscheduling - Breusch-Pagan test
+
+The Breusch-Pagan test verifies the homoschedasticity of residues, that is if the variance of errors remains constant for all predicted values. Heteroschedasticity, or variable error variation, can affect the reliability of model estimates.
+
+```{r, echo = F}
+modello<-formula(model_backward)
+testbp<-bptest(modello,data=numerical_data)
+testbp
+```
+
+In this case the p-value  > 0.05, therefore we do not reject the null hypothesis, this means that we have homoschedaticità and therefore the variance of the errors is constant.
+
+### Serial Correlation - Durbin-Watson test
+
+The Durbin-Watson test is used to check for serial autocorrelation of residues, which occurs when subsequent errors are related to each other.
+
+```{r, warning = F, echo = F}
+dwtest(model_backward, data = numerical_data)
+```
+
+Also in this case the p-value \> 0.05 and the DW value is close to 2, therefore, there is insufficient evidence to reject the null hypothesis of absence of autocorrelation in the residues.
+
+## Analysis of residues
+
+### Linear residue distribution
+
+In the graph, you will see a horizontal line corresponding to the residues with an average of zero. This is because, by definition, the residues of a regression model constructed by the least squares method (OLS) always have an average of zero. The red line, instead, represents a trend line, useful for evaluating the hypothesis. If the red line overlaps significantly with the dotted line, then the linearity hypothesis is confirmed. According to the linearity hypothesis, the data must be randomly distributed around zero. If the data dispersion is not random and follows a specific pattern around zero, then there is no linearity in the residue distribution.
+
+```{r, echo = F}
+plot(model_backward, which = 1)
+```
+
+From the graph you can see how the hypothesis of linearity can be considered verified as the points are randomly distributed around the zero without bringing out any pattern.
+
+### Homoscheduling of residues
+
+To determine if there is heteroschedasticity by residue analysis, it is necessary to create a graph showing the residues in absolute value on the axis of the ordinates and the values estimated by the model on the axis of the ascisse: Vertical dispersion is expected to be approximately constant. In fact, in the diagram below, it is observed that most of the residues, even if randomly arranged, are around the values of 0.5 and 1.
+
+```{r, echo = F}
+plot(model_backward, which = 3)
+```
+
+### Outlier
+
+The graph used to verify linearity in error distribution can also be used to identify outliers in the model. Outliers are simply those points that are identified by numbers and appear more isolated than the other points in the residue chart.
+
+For more diagnostic tools, we can consider the use of **leverage scores** (leverage points). These points, when the explanatory variables are more than one, can be influenced by the other regressors. We can use the**Added Variable Plot** to highlight these relationships. This graph represents the relationship between a specific independent variable and the model residues, controlling for the effects of the other independent variables in the model. In practice, this allows you to assess how a specific independent variable affects the model’s residues, providing further guidance on its relevance and the possible presence of outliers.
+
+```{r, echo F}
+avPlots(model_backward,terms=~.)
+```
+
+Each graph displays a regression line whose inclination represents the estimate of the coefficient of the specific independent variable, also highlighting how it varies when included in the model. If a variable has a minimal influence on the leverage points of each observation, it will appear close to the horizontal line Y = 0.
+
+# Conclusions
+
+The report in question concerns a statistical analysis of the data relating to the defensive actions of the teams of the top 5 European championships related to the 2023/2024 season. In particular, the data set was subjected to a descriptive analysis to describe the distribution of each variable and consequently the playing styles of the various teams, for example by highlighting how Tottenham is the team with the most tackles in the third offensive or how Juventus is the team with the highest percentage of successful dribbling; then we went through an exploratory analysis to decrease the dimensionality of the dataset and find out which teams have a similar style of play; and finally a multiple regression model has been hypothesized in order to understand possible relationships between the number of tackles won and the other variables, evidencing above all like the contrasts in the different zones of field, positively influence the increase of winning contrasts.
