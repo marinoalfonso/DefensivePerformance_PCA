@@ -1,0 +1,10 @@
+tidyverse
+corrplot
+factoextra
+worldfootballR
+ggplot2
+GGally
+car
+lmtest
+PerformanceAnalytics
+gridExtra
