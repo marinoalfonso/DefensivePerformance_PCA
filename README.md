@@ -1,5 +1,5 @@
-# Application of PCA & Multiple Linear Regression with football data
-**Defensive Performance Analysis of Top 5 European Leagues — 2023/24 Season**
+# Defensive Performance Analysis in European Football using PCA and Multiple Linear Regression
+**Exploring Defensive Team Profiles of Top 5 European Leagues — 2023/24 Season**
 
 A statistical analysis of team-level defensive data from the five major European football leagues (Serie A, Bundesliga, Ligue 1, La Liga, Premier League) in the 2023/24 season, applying **Principal Component Analysis (PCA)** and **Multiple Linear Regression**.
 
