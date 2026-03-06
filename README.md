@@ -1,9 +1,24 @@
 # Application of PCA & Multiple Linear Regression with football data
-# DefensivePerformance_PCA
-
 **Defensive Performance Analysis of Top 5 European Leagues — 2023/24 Season**
 
 A statistical analysis of team-level defensive data from the five major European football leagues (Serie A, Bundesliga, Ligue 1, La Liga, Premier League) in the 2023/24 season, applying **Principal Component Analysis (PCA)** and **Multiple Linear Regression**.
+
+---
+
+> ⚠️ **Reproducibility notice**
+>
+> This project was developed in 2022/23. Since then, FBref has restricted access
+> to several statistical tables that were previously available for free scraping.
+> As a result, the data-loading step in `report.Rmd` — which relies on
+> `worldfootballR::fb_season_team_stats(..., "defense")` — **no longer works**
+> and will return an error or empty data.
+>
+> Unfortunately the original dataset was not exported at the time and cannot be
+> redistributed. The repository is therefore preserved as a **methodological
+> reference**: the full analysis pipeline (descriptive statistics, PCA, multiple
+> regression, and diagnostic tests) remains valid and can be adapted to any
+> equivalent dataset obtained through alternative means (e.g. a paid FBref
+> subscription, or a manually exported CSV).
 
 ---
 
