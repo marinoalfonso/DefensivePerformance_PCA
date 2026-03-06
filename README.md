@@ -7,7 +7,7 @@ A statistical analysis of team-level defensive data from the five major European
 
 > ⚠️ **Reproducibility notice**
 >
-> This project was developed in 2022/23. Since then, FBref has restricted access
+> This project was developed in 2024. Since then, FBref has restricted access
 > to several statistical tables that were previously available for free scraping.
 > As a result, the data-loading step in `report.Rmd` — which relies on
 > `worldfootballR::fb_season_team_stats(..., "defense")` — **no longer works**
