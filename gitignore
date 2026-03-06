@@ -1,0 +1,24 @@
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# Cached data (not redistributable)
+data/*.rds
+data/*.csv
+data/*.xlsx
+
+# Compiled report artefacts
+*.aux
+*.log
+*.synctex.gz
+report.pdf
+report.html
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output figures (reproducible from Rmd)
+output/
