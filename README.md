@@ -1,4 +1,6 @@
 # Application of PCA & Multiple Linear Regression with football data
+# DefensivePerformance_PCA
+
 **Defensive Performance Analysis of Top 5 European Leagues — 2023/24 Season**
 
 A statistical analysis of team-level defensive data from the five major European football leagues (Serie A, Bundesliga, Ligue 1, La Liga, Premier League) in the 2023/24 season, applying **Principal Component Analysis (PCA)** and **Multiple Linear Regression**.
@@ -15,6 +17,20 @@ This project explores *how* and *how much* top European clubs defend, going beyo
 
 ---
 
+## 🖼️ Visuals
+
+### PCA Biplot — UCL vs Non-UCL Teams
+![PCA Biplot](output/figures/pca_biplot_ucl.png)
+
+> Most Champions League qualifiers cluster in the negative PC1 region, consistent with possession-oriented styles that minimise exposure to defensive actions.
+
+### Radar Chart Example
+![Radar Chart](output/figures/radar_example.png)
+
+> Each team's defensive profile expressed as percentile ranks across all 14 variables.
+
+---
+
 ## 📂 Repository Structure
 
 ```
@@ -25,7 +41,10 @@ DefensivePerformance_PCA/
 │   └── helpers.R       # Reusable utility functions
 ├── data/
 │   └── README.md       # Notes on data provenance and caching
-├── output/             # Generated figures and tables
+├── output/
+│   └── figures/
+│       ├── pca_biplot_ucl.png     # PCA biplot — UCL vs non-UCL teams
+│       └── radar_example.png      # Radar chart example
 └── docs/
     └── variable_glossary.md   # Full variable descriptions
 ```
@@ -94,4 +113,4 @@ Data extracted via the [`worldfootballR`](https://jaseziv.github.io/worldfootbal
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE).r the [MIT License](LICENSE).
