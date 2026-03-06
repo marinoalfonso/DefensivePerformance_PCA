@@ -128,4 +128,4 @@ Data extracted via the [`worldfootballR`](https://jaseziv.github.io/worldfootbal
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).r the [MIT License](LICENSE).
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
