@@ -20,5 +20,8 @@ report.html
 .DS_Store
 Thumbs.db
 
-# Output figures (reproducible from Rmd)
-output/
+# Output — track figures for README, ignore everything else
+output/*
+!output/figures/
+output/figures/*
+!output/figures/*.png
