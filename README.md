@@ -22,7 +22,7 @@ This project explores *how* and *how much* top European clubs defend, going beyo
 ### PCA Biplot — UCL vs Non-UCL Teams
 ![PCA Biplot](output/figures/pca_biplot_ucl.png)
 
-> Most Champions League qualifiers cluster in the negative PC1 region, consistent with possession-oriented styles that minimise exposure to defensive actions.
+> Most Champions League qualifiers cluster in the positive PC1–PC2 region, suggesting that top clubs tend to be more active defensively — pressing higher and winning more tackles across all zones of the pitch.
 
 ### Radar Chart Example
 ![Radar Chart](output/figures/radar_example.png)
