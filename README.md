@@ -1,16 +1,97 @@
 # Application of PCA & Multiple Linear Regression with football data
+**Defensive Performance Analysis of Top 5 European Leagues — 2023/24 Season**
 
-This research combines the power of 𝑷𝒓𝒊𝒏𝒄𝒊𝒑𝒂𝒍 𝑪𝒐𝒎𝒑𝒐𝒏𝒆𝒏𝒕 𝑨𝒏𝒂𝒍𝒚𝒔𝒊𝒔 (𝑷𝑪𝑨) and 𝑴𝒖𝒍𝒕𝒊𝒑𝒍𝒆 𝑳𝒊𝒏𝒆𝒂𝒓 𝑹𝒆𝒈𝒓𝒆𝒔𝒔𝒊𝒐𝒏 to uncover unique insights into team performances. All analyses were conducted using the statistical software 𝑹.
+A statistical analysis of team-level defensive data from the five major European football leagues (Serie A, Bundesliga, Ligue 1, La Liga, Premier League) in the 2023/24 season, applying **Principal Component Analysis (PCA)** and **Multiple Linear Regression**.
 
-## Key Hihglihts
-𝑫𝒂𝒕𝒂𝒔𝒆𝒕 𝑶𝒗𝒆𝒓𝒗𝒊𝒆𝒘: We analyzed comprehensive data on defensive actions from teams in Serie A, Bundesliga, Ligue 1, La Liga, and the Premier League.
+---
 
-𝑫𝒆𝒔𝒄𝒓𝒊𝒑𝒕𝒊𝒗𝒆 𝑨𝒏𝒂𝒍𝒚𝒔𝒊𝒔: Utilized statistical tools and graphs to understand the distribution and key metrics of the dataset.
+## 📋 Overview
 
-𝑫𝒊𝒎𝒆𝒏𝒔𝒊𝒐𝒏𝒂𝒍𝒊𝒕𝒚 𝑹𝒆𝒅𝒖𝒄𝒕𝒊𝒐𝒏 𝒘𝒊𝒕𝒉 𝑷𝑪𝑨: Simplified complex data to highlight the primary components driving team behaviors.
+This project explores *how* and *how much* top European clubs defend, going beyond simple tallies to identify:
 
-𝑴𝒖𝒍𝒕𝒊𝒑𝒍𝒆 𝑳𝒊𝒏𝒆𝒂𝒓 𝑹𝒆𝒈𝒓𝒆𝒔𝒔𝒊𝒐𝒏: Investigated linear relationships among variables to identify key performance indicators.
+- **Tactical profiles** of individual teams through descriptive statistics and radar charts.
+- **Latent defensive dimensions** via PCA (e.g., overall defensive intensity, pressing orientation, midfield efficiency, error propensity).
+- **Linear drivers of tackle success** via multiple regression with backward variable selection.
 
-This study reveals the diverse defensive styles and strategies adopted by different teams, influenced by their coaches' tactical philosophies and the players' unique skills.
-For those interested in the detailed R code used in this analysis, feel free to contact me directly.
+---
 
+## 📂 Repository Structure
+
+```
+DefensivePerformance_PCA/
+├── report.Rmd          # Main analysis document (R Markdown)
+├── report.pdf          # Compiled PDF report
+├── R/
+│   └── helpers.R       # Reusable utility functions
+├── data/
+│   └── README.md       # Notes on data provenance and caching
+├── output/             # Generated figures and tables
+└── docs/
+    └── variable_glossary.md   # Full variable descriptions
+```
+
+---
+
+## 📦 Dependencies
+
+All analysis is done in **R**. Install required packages with:
+
+```r
+install.packages(c(
+  "tidyverse", "corrplot", "factoextra", "worldfootballR",
+  "ggplot2", "GGally", "car", "lmtest", "PerformanceAnalytics",
+  "gridExtra", "fmsb", "psych", "scales"
+))
+```
+
+> **Note:** `worldfootballR` scrapes data from [fbref.com](https://fbref.com). An active internet connection is required to reproduce the data-loading step. To avoid repeated scraping, the cleaned dataset can be cached locally — see [`data/README.md`](data/README.md).
+
+---
+
+## 🚀 Reproducing the Analysis
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/marinoalfonso/DefensivePerformance_PCA.git
+   cd DefensivePerformance_PCA
+   ```
+
+2. Open `report.Rmd` in **RStudio** (or any R environment).
+
+3. Install dependencies (see above).
+
+4. Knit the document to PDF or HTML:
+   ```r
+   rmarkdown::render("report.Rmd", output_format = "pdf_document")
+   # or
+   rmarkdown::render("report.Rmd", output_format = "html_document")
+   ```
+
+---
+
+## 🔑 Key Findings
+
+| Stage | Main Result |
+|---|---|
+| Descriptive | Tottenham leads in attacking-third tackles; Juventus leads in dribble-countering %; Liverpool concedes most dribbles (Gegenpressing effect). |
+| PCA | 4 PCs explain >75% variance. PC1 = overall defensive intensity; PC2 = pressing height; PC3 = midfield efficiency; PC4 = error propensity. |
+| Regression | Best model for `TklWin`: tackles in all three field zones (positive) + shots blocked (negative). Adjusted R² > 0.90 after backward selection. |
+
+---
+
+## 📊 Data Source
+
+Data extracted via the [`worldfootballR`](https://jaseziv.github.io/worldfootballR/) R package from [fbref.com](https://fbref.com), a widely used football statistics aggregator. The dataset covers **96 teams** (20 per league, 18 for Bundesliga and Ligue 1) with **14 numeric defensive variables** per team.
+
+---
+
+## 👤 Author
+
+**Alfonso Marino**  
+[GitHub](https://github.com/marinoalfonso) · Feel free to open an issue or submit a PR.
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
